@@ -344,6 +344,57 @@ bound.
 
 ---
 
+## duplicate_code
+
+**Goal:** Confirm the code is duplicated — either within the changed
+files, or reimplements logic that already exists in the codebase.
+
+**Method:**
+1. From the candidate's hypothesis, identify the suspected duplicate.
+   The analyzer should have given one of:
+   - "this block at file A:lines is also at file B:lines" (within-change
+     duplication), OR
+   - "this new function at file X:lines does what existing util Y at
+     file Z:lines already does" (reimplementation of existing code).
+2. Confirm the duplication:
+   - **Exact / near-exact match**: `diff` the two ranges. Allow
+     whitespace and identifier renames; reject only if structural
+     similarity is < 80%.
+   - **Semantic duplicates** (different syntax, same behavior): write
+     parallel tests against both sites with the same inputs; show they
+     produce equivalent outputs.
+   - **Reimplements existing utility**: grep for the utility's
+     definition; show the new code does the same thing the utility
+     already does.
+3. Reject as false positive if the "duplication" is just standard
+   boilerplate (DI constructors, getters/setters, framework lifecycle
+   hooks, generated code).
+
+**Verdict:**
+- VERIFIED: duplication is real and the semantic equivalence holds.
+- DISPROVEN: the two blocks look similar but have meaningful differences
+  (different inputs, different return shapes, different side effects).
+  Document the divergence.
+- INCONCLUSIVE: cannot establish semantic equivalence (e.g., one side
+  has runtime effects that can't be reproduced cleanly).
+
+**Severity guidance:**
+- `medium` for clear copy-paste between two changed files
+- `medium` for new code reimplementing an existing utility
+- `high` for near-duplicates with subtle differences — these often hide
+  bugs where a fix was applied to one copy and missed in another
+- `low` for cosmetic/idiomatic repetition where extraction would harm
+  clarity (enum value mappings, switch arms)
+- Avoid `critical` — duplicate code is rarely critical in itself, though
+  it can enable other bugs (which would be reported under those classes)
+
+**Failure modes:** False positives on standard boilerplate. The verifier
+must reject candidates where the "duplication" is mechanical (framework
+lifecycle methods, dependency injection wiring, ORM boilerplate) rather
+than business logic.
+
+---
+
 ## off_by_one
 
 **Goal:** Show index/range arithmetic produces wrong bounds.

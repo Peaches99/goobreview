@@ -184,7 +184,7 @@ BUG CLASSES (pick ONE per candidate, or "other"):
   logic_bug, null_undefined, type_error, race_condition, deadlock,
   sql_injection, xss, ssrf, path_traversal, auth_bypass, data_leak,
   n_plus_one, perf_regression, resource_leak, error_swallowing, api_misuse,
-  config_env, dead_code, off_by_one, integer_overflow, money_calculation,
+  config_env, dead_code, duplicate_code, off_by_one, integer_overflow, money_calculation,
   timezone, regex_dos, supply_chain
 
 DO NOT REPORT:
@@ -329,6 +329,7 @@ YOUR JOB:
    - resource_leak → loop N=10000 times; measure RSS or handles; assert
      not growing linearly
    - dead_code → grep + static analysis; show unreachability
+   - duplicate_code → diff suspected duplicate ranges, or grep for existing utility being reimplemented; reject boilerplate
    - config_env → minimal repro project with the misconfiguration
    - api_misuse → run the call, show contract violation
    - regex_dos → run regex with catastrophic input; measure time

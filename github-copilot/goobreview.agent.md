@@ -114,7 +114,7 @@ Classify each candidate by bug class:
 logic_bug, null_undefined, type_error, race_condition, deadlock,
 sql_injection, xss, ssrf, path_traversal, auth_bypass, data_leak,
 n_plus_one, perf_regression, resource_leak, error_swallowing,
-api_misuse, config_env, dead_code, off_by_one, integer_overflow,
+api_misuse, config_env, dead_code, duplicate_code, off_by_one, integer_overflow,
 money_calculation, timezone, regex_dos, supply_chain
 ```
 
@@ -291,6 +291,7 @@ Quick guide per bug class:
 | `api_misuse` | Run call vs documented contract; show mismatch |
 | `config_env` | Reproduce misconfig in worktree; show predicted failure |
 | `dead_code` | Grep callers + check exports/imports; show unreachable |
+| `duplicate_code` | Diff suspected duplicate ranges (allow whitespace + rename); or grep for the existing utility the code reimplements; reject boilerplate |
 | `off_by_one` | Test with lengths 0, 1, N-1, N; assert indices |
 | `integer_overflow` | Test with MAX_INT, MAX_INT-1, MAX_INT*2; assert no wraparound |
 | `money_calculation` | Test `0.1 + 0.2`, repeated additions; assert exact value |

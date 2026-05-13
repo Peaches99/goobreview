@@ -3,7 +3,7 @@ name: goobreview
 description: |
   Verification-first multi-agent code review. Dispatches one Sonnet 4.6 agent per
   execution path PLUS 2 Opus 4.7 max-reasoning agents that review the change
-  holistically (architecture & consistency, data flow & trust boundaries). Every
+  holistically (architecture & consistency, duplicate code & reuse). Every
   candidate concern is independently reproduced by a Sonnet 4.6 agent in an
   isolated git worktree before it can be reported. No false positives: only
   verified bugs reach the final report. Does NOT implement fixes — outputs
@@ -213,6 +213,7 @@ BUG CLASSES (pick ONE per candidate, or "other"):
   api_misuse         wrong contract with library/API
   config_env         missing env var, bad default
   dead_code          code that cannot be reached
+  duplicate_code     same logic in multiple places, or reimplements existing utility
   off_by_one         index/range arithmetic wrong
   integer_overflow   arithmetic overflow / precision loss
   money_calculation  float math on currency
@@ -274,10 +275,13 @@ analyzers so all of Phase 1 runs in parallel:
 - **H1 — Architecture & consistency**: cross-file invariants, refactor
   completeness, partial migrations, stale callers, dependency/module
   boundary issues, API contract drift between caller and callee
-- **H2 — Data flow & trust boundaries**: user input flowing across paths
-  into sinks (SQL, shell, FS, HTTP, render), auth boundaries broken by
-  the change, sensitive data exposure across the request lifecycle,
-  state mutations crossing transaction boundaries
+- **H2 — Duplicate code & reuse**: code blocks duplicated within the
+  change (copy-paste between changed files), new code that reimplements
+  logic already in the codebase as a utility or helper, near-duplicates
+  with subtle variations (the most dangerous kind — usually hide bugs
+  where a fix was applied to one copy and missed in another),
+  inconsistent implementations of the same logical operation across
+  files (two date parsers, two validation paths for the same shape)
 
 Each Agent call:
 - `subagent_type: "general-purpose"`
@@ -312,10 +316,17 @@ YOUR JOB:
      state? Do callers match callees? Do related files agree on field
      names, types, and contracts? Is the refactor complete or did it
      leave stale callers, partial migrations, or dead branches?
-   - **LENS H2** — trace user-controlled data through the changed code.
-     Where does it cross trust boundaries? Where does it reach sinks
-     (SQL, shell, FS, HTTP, eval, render, log)? Are auth checks
-     consistent across all entry paths to the same privileged operation?
+   - **LENS H2** — scan the change for duplicate code. Use `grep` / `rg`
+     aggressively. Look for: (a) blocks duplicated within the changed
+     files (copy-paste); (b) new code that reimplements logic already
+     present in the codebase as a utility, helper, or library function
+     — SEARCH for similar function names and patterns BEFORE assuming
+     the new code is novel; (c) near-duplicates with subtle variations,
+     the most dangerous kind because they usually mean a fix was
+     applied to one copy and missed in another; (d) the same logical
+     operation implemented inconsistently across files (e.g., two
+     different date parsers, two different validation paths for the
+     same input shape). Class candidates as `duplicate_code`.
 
 3. Surface candidate concerns that ONLY a holistic view would catch.
    Do NOT duplicate single-function bugs a path-scoped analyzer already
