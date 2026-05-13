@@ -64,7 +64,7 @@ gh pr diff "$PR_NUM" > /tmp/goobreview-diff.patch
 gh pr diff "$PR_NUM" --name-only > /tmp/goobreview-changed-files.txt
 ```
 
-For `--all`, ALWAYS show cost estimate and confirm before continuing.
+For `--all`, ALWAYS confirm scope before continuing.
 
 ---
 
@@ -104,9 +104,9 @@ Write one descriptor per path to `/tmp/goobreview-paths.json`:
 
 ---
 
-## Step 2 — Cost & runtime confirmation
+## Step 2 — Launch confirmation
 
-Before launching subagents, print:
+Before launching subagents, print a deterministic launch summary:
 
 ```
 goobreview launching:
@@ -114,16 +114,18 @@ goobreview launching:
   Scope:      <one-line summary>
   Paths:      N
   Analyzers:  N subagents (gpt-5.4, max reasoning, parallel up to thread cap)
-  Verifiers:  est. 2-5× per path (worktree-isolated, parallel)
-  Wall time:  est. <range> min
-  Cost:       est. $<range>
+  Verifiers:  spawned per concern after Phase 1 dedup (worktree-isolated, parallel)
 
 If your Codex thread cap is below N, consider raising it
 (see `/permissions` or config). Each subagent runs with maximum reasoning
 effort. No source files will be modified.
 ```
 
-For `--all` mode or N > 20 paths, require explicit confirmation.
+**Do NOT estimate dollar cost or wall-clock time.** The counts are
+deterministic; cost and time predictions are guesses that alarm the user.
+
+For `--all` mode or N > 20 paths, require explicit confirmation describing
+scope and agent count only.
 
 ---
 
@@ -561,7 +563,7 @@ Copy the diff from finding #N and apply it, or hand it to another agent.
 Print to the user (terse):
 - Path to the markdown report
 - Headline counts (`K verified findings: X critical, Y high, Z medium, W low`)
-- Cost & time spent
+- Wall clock spent
 - One-line on next steps
 
 **Do NOT** apply any fixes. **Do NOT** modify any source files. Report only.

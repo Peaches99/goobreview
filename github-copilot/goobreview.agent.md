@@ -55,7 +55,7 @@ git diff "$DEFAULT_BRANCH"...HEAD --name-only > /tmp/goobreview-changed-files.tx
 git diff "$DEFAULT_BRANCH"...HEAD > /tmp/goobreview-diff.patch
 ```
 
-For codebase mode, confirm cost expectations with the user first.
+For codebase mode, confirm scope with the user first. Do NOT estimate dollar cost or wall-clock time — predictions are usually wrong and alarm the user.
 
 ### Step 1 — Discover execution paths
 

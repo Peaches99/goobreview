@@ -70,7 +70,7 @@ gh pr diff "$PR_NUM" > /tmp/goobreview-diff.patch
 gh pr diff "$PR_NUM" --name-only > /tmp/goobreview-changed-files.txt
 ```
 
-For `--all`, ALWAYS show cost estimate and confirm via AskUserQuestion before continuing.
+For `--all`, ALWAYS confirm scope via AskUserQuestion before continuing.
 
 Print a one-line scope summary the user can sanity-check before launching agents.
 
@@ -116,9 +116,9 @@ If zero paths discovered, stop and tell the user — there's nothing to review.
 
 ---
 
-## Step 2 — Cost & runtime confirmation
+## Step 2 — Launch confirmation
 
-Before launching analyzers, print:
+Before launching analyzers, print a deterministic launch summary:
 
 ```
 goobreview launching:
@@ -126,15 +126,20 @@ goobreview launching:
   Scope:      <one-line summary>
   Paths:      N
   Analyzers:  N Opus 4.7 agents (max reasoning, parallel)
-  Verifiers:  est. 2-5× per path (worktree-isolated, parallel)
-  Wall time:  est. <range> min
-  Cost:       est. $<range>  (Opus 4.7 max-reasoning is expensive)
+  Verifiers:  spawned per concern after Phase 1 dedup (worktree-isolated, parallel)
 
 Each agent runs with `ultrathink` to maximize reasoning depth. This is by design.
 No source files will be modified. The report writes to ./goobreview-report-*.md.
 ```
 
-For `--all` mode or N > 20 paths, REQUIRE explicit confirmation via AskUserQuestion. For smaller scopes, just print and proceed.
+**Do NOT estimate dollar cost or wall-clock time.** The agent counts are
+deterministic and useful; cost and time predictions are guesses that are
+usually wrong and alarm the user. If the user wants budget awareness, they
+should watch their usage dashboard.
+
+For `--all` mode or N > 20 paths, REQUIRE explicit confirmation via
+AskUserQuestion describing scope and agent count only — no cost or time
+estimate. For smaller scopes, just print and proceed.
 
 ---
 
@@ -632,7 +637,7 @@ To re-verify after fixing:
 Print to the user (terse):
 - Path to the markdown report
 - Headline counts (`K verified findings: X critical, Y high, Z medium, W low`)
-- Cost & time spent (rough)
+- Wall clock spent (rough)
 - One-line on next steps (apply diffs from the report; re-run to re-verify)
 
 **Do NOT** apply any fixes. **Do NOT** modify any source files. Report only.
@@ -650,7 +655,7 @@ Print to the user (terse):
 | > 100 candidates after dedup | AskUserQuestion: verify all (expensive) or top-50-by-severity. |
 | 0 paths discovered | Stop with a clear message: "No execution paths in scope. Check the path argument or PR diff." |
 | Not in a git repo | Stop. goobreview requires git. |
-| `--all` without confirmation | Show cost estimate, AskUserQuestion to confirm. |
+| `--all` without confirmation | AskUserQuestion to confirm scope. |
 
 ---
 
