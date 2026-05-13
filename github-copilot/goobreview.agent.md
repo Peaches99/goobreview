@@ -140,6 +140,32 @@ Candidate format:
 After all paths are analyzed, dedup candidates: two are duplicates if they
 share `(class, file, line-range overlap ≥ 50%)`. Keep the higher-severity one.
 
+### Announce candidates (print to user)
+
+Before starting verification, print the full candidate list as a numbered,
+one-line-per-item summary. Sort by severity_guess descending, then by file,
+then by line. Render as markdown:
+
+```
+Phase 1 complete — N candidate concerns surfaced:
+
+1. **[CRIT]** `sql_injection` — `src/db/orders.ts:33-41` — orderSearch concatenates user query
+2. **[HIGH]** `null_undefined` — `src/db/users.ts:47-52` — createUser crashes on null email
+3. **[MED]**  `n_plus_one` — `src/api/users.ts:120-145` — listUsers issues N queries per call
+4. **[LOW]**  `dead_code` — `src/utils/legacy.ts:88` — formatLegacyDate has no callers
+
+Verifying each one sequentially in isolated worktrees...
+```
+
+Format rules:
+- Severity tag uppercased and abbreviated: `[CRIT]`, `[HIGH]`, `[MED]`, `[LOW]`
+- Class in backticks, snake_case
+- `file:lines` in backticks
+- Hypothesis is the short one-line description (truncate at ~80 chars)
+- One line per candidate
+
+This is printed to the user inline so they see what's about to be verified.
+
 ### Step 3 — Phase 2: Verify each candidate (sequential, worktree-isolated)
 
 For each unique candidate:
@@ -190,6 +216,29 @@ Verifier result format:
   "notes": "..."
 }
 ```
+
+### Announce verdicts (print to user)
+
+After all candidates have been verified sequentially, print the same list a
+second time — same numbering, same order — but with DISPROVEN and
+INCONCLUSIVE rows struck through, and a verdict tag appended to every row.
+
+```
+Verification complete — K of N candidates verified as real bugs:
+
+1. **[CRIT]** `sql_injection` — `src/db/orders.ts:33-41` — orderSearch concatenates user query  ✓ VERIFIED
+2. **[HIGH]** `null_undefined` — `src/db/users.ts:47-52` — createUser crashes on null email  ✓ VERIFIED
+3. ~~**[MED]**  `n_plus_one` — `src/api/users.ts:120-145` — listUsers issues N queries per call~~  ✗ DISPROVEN — eager:true is already used at line 130
+4. ~~**[LOW]**  `dead_code` — `src/utils/legacy.ts:88` — formatLegacyDate has no callers~~  ? INCONCLUSIVE — symbol is referenced via dynamic dispatch
+```
+
+Format rules:
+- Same item order as the Phase 1 announcement
+- `~~...~~` strikethrough wraps the descriptive part, NOT the verdict tag
+- Verdict tag: `✓ VERIFIED` | `✗ DISPROVEN — <reason>` | `? INCONCLUSIVE — <reason>`
+
+This is printed to the user inline. The report file (next step) contains
+the full VERIFIED entries with evidence and proposed fixes.
 
 ### Step 4 — Aggregate and write report
 

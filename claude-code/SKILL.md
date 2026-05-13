@@ -266,6 +266,35 @@ Write merged list to `/tmp/goobreview-candidates.json`.
 If 0 candidates after dedup: skip to Step 7 with a clean report.
 If > 100 candidates: warn the user and ask whether to verify all or sample top-50-by-severity.
 
+### Announce candidates (print to user)
+
+Before launching verifiers, print the full candidate list to the user as a
+numbered, one-line-per-item summary. Sort by `severity_guess` descending
+(critical > high > medium > low), then by file, then by line. Render as
+markdown so it shows up as a nicely formatted list:
+
+```
+Phase 1 complete — N candidate concerns surfaced:
+
+1. **[CRIT]** `sql_injection` — `src/db/orders.ts:33-41` — orderSearch concatenates user query
+2. **[HIGH]** `null_undefined` — `src/db/users.ts:47-52` — createUser crashes on null email
+3. **[MED]**  `n_plus_one` — `src/api/users.ts:120-145` — listUsers issues N queries per call
+4. **[LOW]**  `dead_code` — `src/utils/legacy.ts:88` — formatLegacyDate has no callers
+
+Launching N verifiers (Opus 4.7 max reasoning, worktree-isolated)...
+```
+
+Format rules:
+- Severity tag uppercased and abbreviated: `[CRIT]`, `[HIGH]`, `[MED]`, `[LOW]`
+- Class in backticks, snake_case
+- `file:lines` in backticks
+- Hypothesis is the short one-line description (truncate at ~80 chars if longer)
+- One line per candidate (truncate hypothesis rather than wrapping)
+- Use a markdown numbered list — Claude Code's renderer makes this look clean
+
+This list is printed to the user inline, not written to a file. The user
+should be able to see at a glance what's about to be verified.
+
 ---
 
 ## Step 5 — Phase 2: Spawn verifiers (parallel, worktree-isolated)
@@ -405,6 +434,34 @@ Take your time. A wrong verdict is worse than a slow one.
 ```
 
 When all verifier agents return, parse their JSON.
+
+### Announce verdicts (print to user)
+
+After all verifiers return, print the same list a second time — same
+numbering, same order — but with DISPROVEN and INCONCLUSIVE rows struck
+through, and a verdict tag appended to every row.
+
+```
+Verification complete — K of N candidates verified as real bugs:
+
+1. **[CRIT]** `sql_injection` — `src/db/orders.ts:33-41` — orderSearch concatenates user query  ✓ VERIFIED
+2. **[HIGH]** `null_undefined` — `src/db/users.ts:47-52` — createUser crashes on null email  ✓ VERIFIED
+3. ~~**[MED]**  `n_plus_one` — `src/api/users.ts:120-145` — listUsers issues N queries per call~~  ✗ DISPROVEN — eager:true is already used at line 130
+4. ~~**[LOW]**  `dead_code` — `src/utils/legacy.ts:88` — formatLegacyDate has no callers~~  ? INCONCLUSIVE — symbol is referenced via dynamic dispatch
+```
+
+Format rules:
+- Same item order as the Phase 1 announcement (so the user can compare line-by-line)
+- `~~...~~` strikethrough wraps the descriptive part (severity, class, file, hypothesis), NOT the verdict tag
+- Verdict tag appended at end of each row:
+  - `✓ VERIFIED`
+  - `✗ DISPROVEN — <one-line reason>`
+  - `? INCONCLUSIVE — <one-line reason>`
+- One line per candidate
+
+This is printed to the user inline. The report file (Step 7) contains the
+full VERIFIED entries with evidence and proposed fixes, plus appendices
+for the others.
 
 ---
 

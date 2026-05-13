@@ -239,6 +239,34 @@ Write merged list to `/tmp/goobreview-candidates.json`.
 If 0 candidates: skip to Step 7 with a clean report.
 If > 100 candidates: ask the user whether to verify all or sample top-50-by-severity.
 
+### Announce candidates (print to user)
+
+Before launching verifier subagents, print the full candidate list to the
+user as a numbered, one-line-per-item summary. Sort by `severity_guess`
+descending (critical > high > medium > low), then by file, then by line.
+Render as markdown:
+
+```
+Phase 1 complete — N candidate concerns surfaced:
+
+1. **[CRIT]** `sql_injection` — `src/db/orders.ts:33-41` — orderSearch concatenates user query
+2. **[HIGH]** `null_undefined` — `src/db/users.ts:47-52` — createUser crashes on null email
+3. **[MED]**  `n_plus_one` — `src/api/users.ts:120-145` — listUsers issues N queries per call
+4. **[LOW]**  `dead_code` — `src/utils/legacy.ts:88` — formatLegacyDate has no callers
+
+Launching N verifier subagents (max-reasoning, worktree-isolated)...
+```
+
+Format rules:
+- Severity tag uppercased and abbreviated: `[CRIT]`, `[HIGH]`, `[MED]`, `[LOW]`
+- Class in backticks, snake_case
+- `file:lines` in backticks
+- Hypothesis is the short one-line description (truncate at ~80 chars if longer)
+- One line per candidate
+
+This list is printed inline so the user can see at a glance what's about
+to be verified.
+
 ---
 
 ## Step 5 — Phase 2: Spawn verifiers (parallel, worktree-isolated)
@@ -360,6 +388,33 @@ for id in $(jq -r '.[].concern_id' /tmp/goobreview-candidates.json); do
   git worktree remove "/tmp/goob-$id" --force 2>/dev/null || true
 done
 ```
+
+### Announce verdicts (print to user)
+
+After all verifier subagents return and worktrees are torn down, print the
+same list a second time — same numbering, same order — but with DISPROVEN
+and INCONCLUSIVE rows struck through, and a verdict tag appended to every
+row.
+
+```
+Verification complete — K of N candidates verified as real bugs:
+
+1. **[CRIT]** `sql_injection` — `src/db/orders.ts:33-41` — orderSearch concatenates user query  ✓ VERIFIED
+2. **[HIGH]** `null_undefined` — `src/db/users.ts:47-52` — createUser crashes on null email  ✓ VERIFIED
+3. ~~**[MED]**  `n_plus_one` — `src/api/users.ts:120-145` — listUsers issues N queries per call~~  ✗ DISPROVEN — eager:true is already used at line 130
+4. ~~**[LOW]**  `dead_code` — `src/utils/legacy.ts:88` — formatLegacyDate has no callers~~  ? INCONCLUSIVE — symbol is referenced via dynamic dispatch
+```
+
+Format rules:
+- Same item order as the Phase 1 announcement
+- `~~...~~` strikethrough wraps the descriptive part, NOT the verdict tag
+- Verdict tag:
+  - `✓ VERIFIED`
+  - `✗ DISPROVEN — <one-line reason>`
+  - `? INCONCLUSIVE — <one-line reason>`
+
+This is printed to the user inline. The report file (Step 7) contains the
+full VERIFIED entries with evidence and proposed fixes.
 
 ---
 
