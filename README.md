@@ -124,11 +124,11 @@ phases are sequential — same architecture, just slower wall clock.
 
 ## Caveats (apply to all platforms)
 
-- **Cost is real.** Opus 4.7 / GPT-5.4 max-reasoning agents are expensive
-  and goobreview spawns one per execution path plus one per concern. The
-  skill prints exact agent counts before launching but deliberately does
-  not estimate dollar cost — predictions are usually wrong. Watch your
-  usage dashboard if you care about spend.
+- **Cost is real.** Sonnet 4.6 / GPT-5.4 max-reasoning agents add up fast
+  because goobreview spawns one per execution path plus one per concern.
+  The skill prints exact agent counts before launching but deliberately
+  does not estimate dollar cost — predictions are usually wrong. Watch
+  your usage dashboard if you care about spend.
 - **Verification asymmetry.** Races, perf regressions, and memory leaks
   tend to come back INCONCLUSIVE rather than VERIFIED. goobreview is
   strongest on logic, null, type, injection, and auth bugs.

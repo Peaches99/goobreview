@@ -1,7 +1,7 @@
 ---
 name: goobreview
 description: |
-  Verification-first multi-agent code review. Dispatches one Opus 4.7 max-reasoning
+  Verification-first multi-agent code review. Dispatches one Sonnet 4.6 max-reasoning
   agent per execution path; every candidate concern is independently reproduced in
   an isolated git worktree before it can be reported. No false positives: only
   verified bugs reach the final report. Does NOT implement fixes — outputs detailed
@@ -30,7 +30,7 @@ triggers:
 # goobreview — verification-first multi-agent code review
 
 A local mirror of Anthropic's /ultrareview with stronger guarantees:
-- **One Opus 4.7 max-reasoning agent per execution path** — not a fixed fleet
+- **One Sonnet 4.6 max-reasoning agent per execution path** — not a fixed fleet
 - **Mandatory reproduction**: every reported concern was reproduced in an isolated git worktree
 - **No fixes applied**: report-only, with proposed-fix diffs ready for another agent
 
@@ -125,7 +125,7 @@ goobreview launching:
   Mode:       <pr|component|codebase>
   Scope:      <one-line summary>
   Paths:      N
-  Analyzers:  N Opus 4.7 agents (max reasoning, parallel)
+  Analyzers:  N Sonnet 4.6 agents (max reasoning, parallel)
   Verifiers:  spawned per concern after Phase 1 dedup (worktree-isolated, parallel)
 
 Each agent runs with `ultrathink` to maximize reasoning depth. This is by design.
@@ -149,7 +149,7 @@ Dispatch ONE Agent call per path, **all in a single message** so they run concur
 
 Each Agent call:
 - `subagent_type: "general-purpose"`
-- `model: "opus"`
+- `model: "sonnet"`
 - `description: "Analyze path P0X"`
 - `prompt`: see ANALYZER PROMPT below, with the path descriptor and any relevant diff hunks inlined
 
@@ -286,7 +286,7 @@ Phase 1 complete — N candidate concerns surfaced:
 3. **[MED]**  `n_plus_one` — `src/api/users.ts:120-145` — listUsers issues N queries per call
 4. **[LOW]**  `dead_code` — `src/utils/legacy.ts:88` — formatLegacyDate has no callers
 
-Launching N verifiers (Opus 4.7 max reasoning, worktree-isolated)...
+Launching N verifiers (Sonnet 4.6 max reasoning, worktree-isolated)...
 ```
 
 Format rules:
@@ -304,11 +304,11 @@ should be able to see at a glance what's about to be verified.
 
 ## Step 5 — Phase 2: Spawn verifiers (parallel, worktree-isolated)
 
-For each unique candidate, spawn an Opus 4.7 max-reasoning verifier **with worktree isolation**.
+For each unique candidate, spawn an Sonnet 4.6 max-reasoning verifier **with worktree isolation**.
 
 Each Agent call:
 - `subagent_type: "general-purpose"`
-- `model: "opus"`
+- `model: "sonnet"`
 - `isolation: "worktree"`  ← critical: gives the verifier a fresh worktree
 - `description: "Verify P0X-C0Y"`
 - `prompt`: see VERIFIER PROMPT below
