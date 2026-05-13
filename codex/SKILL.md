@@ -30,7 +30,7 @@ You (the orchestrator) coordinate two phases:
 2. **Verifiers** reproduce each candidate in an isolated worktree; only
    verified ones are reported
 
-Use the highest-reasoning model available (e.g., `gpt-5.4`). Take your time.
+Use the highest-reasoning model available (e.g., `gpt-5.5`). Take your time.
 Depth wins over speed.
 
 ---
@@ -113,7 +113,7 @@ goobreview launching:
   Mode:       <pr|component|codebase>
   Scope:      <one-line summary>
   Paths:      N
-  Analyzers:  N subagents (gpt-5.4, max reasoning, parallel up to thread cap)
+  Analyzers:  N subagents (gpt-5.5, max reasoning, parallel up to thread cap)
   Verifiers:  spawned per concern after Phase 1 dedup (worktree-isolated, parallel)
 
 If your Codex thread cap is below N, consider raising it

@@ -2,7 +2,7 @@
 name: goobreview
 description: Verification-first code review — reproduces every concern before reporting. No fixes applied.
 tools: ['search/codebase', 'edit/file', 'terminal/run', 'read/terminalOutput', 'read/file', 'list/dir']
-model: ['Claude Sonnet 4.6', 'GPT-5.4']
+model: ['Claude Sonnet 4.6', 'GPT-5.5']
 user-invocable: true
 ---
 
@@ -33,7 +33,7 @@ take noticeably longer here than under Claude Code or Codex.
 verification, you (the agent) will create a temporary branch or use
 `git worktree add` manually via terminal commands.
 
-Use the highest-capability model available (Claude Sonnet 4.6, GPT-5.4).
+Use the highest-capability model available (Claude Sonnet 4.6, GPT-5.5).
 
 ---
 

@@ -124,7 +124,7 @@ phases are sequential — same architecture, just slower wall clock.
 
 ## Caveats (apply to all platforms)
 
-- **Cost is real.** Sonnet 4.6 / GPT-5.4 max-reasoning agents add up fast
+- **Cost is real.** Sonnet 4.6 / GPT-5.5 max-reasoning agents add up fast
   because goobreview spawns one per execution path plus one per concern.
   The skill prints exact agent counts before launching but deliberately
   does not estimate dollar cost — predictions are usually wrong. Watch
