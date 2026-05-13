@@ -1,11 +1,13 @@
 ---
 name: goobreview
 description: |
-  Verification-first multi-agent code review. Dispatches one Sonnet 4.6 max-reasoning
-  agent per execution path; every candidate concern is independently reproduced in
-  an isolated git worktree before it can be reported. No false positives: only
-  verified bugs reach the final report. Does NOT implement fixes — outputs detailed
-  findings with proposed-fix diffs for another agent or a human to apply.
+  Verification-first multi-agent code review. Dispatches one Sonnet 4.6 agent per
+  execution path PLUS 2 Opus 4.7 max-reasoning agents that review the change
+  holistically (architecture & consistency, data flow & trust boundaries). Every
+  candidate concern is independently reproduced by a Sonnet 4.6 agent in an
+  isolated git worktree before it can be reported. No false positives: only
+  verified bugs reach the final report. Does NOT implement fixes — outputs
+  detailed findings with proposed-fix diffs for another agent or a human to apply.
 
   Three modes: PR diff (default), component path, or whole-codebase scan.
 
@@ -30,7 +32,7 @@ triggers:
 # goobreview — verification-first multi-agent code review
 
 A local mirror of Anthropic's /ultrareview with stronger guarantees:
-- **One Sonnet 4.6 max-reasoning agent per execution path** — not a fixed fleet
+- **One Sonnet 4.6 agent per execution path** + **2 Opus 4.7 holistic analyzers** (architecture/consistency + data-flow/trust-boundaries) — not a fixed fleet
 - **Mandatory reproduction**: every reported concern was reproduced in an isolated git worktree
 - **No fixes applied**: report-only, with proposed-fix diffs ready for another agent
 
@@ -125,8 +127,9 @@ goobreview launching:
   Mode:       <pr|component|codebase>
   Scope:      <one-line summary>
   Paths:      N
-  Analyzers:  N Sonnet 4.6 agents (max reasoning, parallel)
-  Verifiers:  spawned per concern after Phase 1 dedup (worktree-isolated, parallel)
+  Path analyzers:     N Sonnet 4.6 agents (max reasoning, parallel)
+  Holistic analyzers: 2 Opus 4.7 agents (max reasoning, parallel)
+  Verifiers:          spawned per concern after Phase 1 dedup (Sonnet 4.6, worktree-isolated, parallel)
 
 Each agent runs with `ultrathink` to maximize reasoning depth. This is by design.
 No source files will be modified. The report writes to ./goobreview-report-*.md.
@@ -251,7 +254,107 @@ If you find no candidates after thorough analysis, return:
 Take your time. The slower and more thorough, the better.
 ```
 
-When all analyzer agents return, parse each one's JSON.
+### Phase 1b — 2 holistic Opus analyzers (parallel with Phase 1a)
+
+In parallel with the per-path Sonnet analyzers, dispatch **2 Opus 4.7
+max-reasoning analyzers** that review the change as a whole. They catch
+cross-cutting issues that path-scoped reviewers miss: inconsistent
+refactors, invariant violations spanning files, data flow across trust
+boundaries, API contract drift between caller and callee paths.
+
+These analyzers SURFACE candidates only — they do NOT verify. Their
+candidates go through the same dedup + Sonnet verification pipeline as
+path-analyzer candidates. The expensive Opus model is used here because
+holistic reasoning is where it pays off; verification is mechanical and
+stays on Sonnet.
+
+Two lenses, one Agent each. Spawn both in the same message as the path
+analyzers so all of Phase 1 runs in parallel:
+
+- **H1 — Architecture & consistency**: cross-file invariants, refactor
+  completeness, partial migrations, stale callers, dependency/module
+  boundary issues, API contract drift between caller and callee
+- **H2 — Data flow & trust boundaries**: user input flowing across paths
+  into sinks (SQL, shell, FS, HTTP, render), auth boundaries broken by
+  the change, sensitive data exposure across the request lifecycle,
+  state mutations crossing transaction boundaries
+
+Each Agent call:
+- `subagent_type: "general-purpose"`
+- `model: "opus"`  ← deliberately heavier than the Sonnet path analyzers; only 2 of these so cost is bounded
+- `description: "Holistic analyzer H1"` (or H2)
+- `prompt`: see HOLISTIC ANALYZER PROMPT below with the appropriate LENS
+
+#### HOLISTIC ANALYZER PROMPT
+
+```
+You are a holistic reviewer. You read the change as a whole — not through
+any single execution path — and surface candidate concerns that require
+cross-cutting visibility to spot. Take your time. Reason exhaustively.
+
+**ultrathink**
+
+LENS: <inject "H1: Architecture & consistency" OR "H2: Data flow & trust boundaries">
+
+SCOPE:
+<inject the full diff for PR mode, or the full file list for component / codebase mode>
+
+CHANGED FILES:
+<inject list of files changed>
+
+YOUR JOB:
+1. Read enough of the codebase to form a holistic view. Read shared
+   types, interfaces, schema and config files, and any module referenced
+   from multiple changed files. You have unlimited time.
+
+2. Reason about the change as a whole:
+   - **LENS H1** — does the change leave the codebase in a consistent
+     state? Do callers match callees? Do related files agree on field
+     names, types, and contracts? Is the refactor complete or did it
+     leave stale callers, partial migrations, or dead branches?
+   - **LENS H2** — trace user-controlled data through the changed code.
+     Where does it cross trust boundaries? Where does it reach sinks
+     (SQL, shell, FS, HTTP, eval, render, log)? Are auth checks
+     consistent across all entry paths to the same privileged operation?
+
+3. Surface candidate concerns that ONLY a holistic view would catch.
+   Do NOT duplicate single-function bugs a path-scoped analyzer already
+   sees (those run in parallel with you). Focus on issues that require
+   seeing multiple files or the diff as a whole.
+
+4. Use the SAME bug classes as path analyzers. Set `path_id` to `"H1"`
+   or `"H2"` so dedup knows where the candidate came from. Do not return
+   a verdict — verification happens in the next phase.
+
+OUTPUT FORMAT — same JSON shape as path analyzers:
+
+```json
+{
+  "path_id": "H1",
+  "candidates": [
+    {
+      "concern_id": "H1-C01",
+      "class": "api_misuse",
+      "file": "src/jobs/seed.js",
+      "lines": "42-48",
+      "severity_guess": "high",
+      "hypothesis": "createUser now requires tenantId (per src/db/users.ts:47 change), but seed.js still calls it without one. TS compiler catches updated TS sites but the dynamic call in seed.js will fail at runtime.",
+      "repro_strategy": "Run `node scripts/seed.js` against the new createUser signature; expect a ValidationError",
+      "context_excerpt": "createUser({ email: 'admin@x', name: 'Admin' });"
+    }
+  ]
+}
+```
+
+If you find no candidates after thorough analysis, return:
+```json
+{"path_id": "H1", "candidates": []}
+```
+
+Take your time. Cross-cutting bugs are the most expensive to ship.
+```
+
+When all analyzer agents return (both path and holistic), parse each one's JSON.
 
 ---
 

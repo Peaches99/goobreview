@@ -120,6 +120,11 @@ Aggregate VERIFIED only → Markdown + JSON report
 On Claude Code and Codex CLI, both phases are parallel. On Copilot, both
 phases are sequential — same architecture, just slower wall clock.
 
+The Claude Code port also dispatches **2 additional Opus 4.7 holistic
+analyzers** in Phase 1 that review the change as a whole (architecture &
+consistency, data flow & trust boundaries). They surface candidates only;
+verification stays on Sonnet 4.6 for cost.
+
 ---
 
 ## Caveats (apply to all platforms)
