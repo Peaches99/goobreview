@@ -1,61 +1,164 @@
 # goobreview
 
-Verification-first multi-agent code review for [Claude Code](https://www.anthropic.com/claude-code). A local mirror of Anthropic's `/ultrareview` with stronger guarantees:
+Verification-first multi-agent code review. A local mirror of Anthropic's
+`/ultrareview`:
 
-- **One Opus 4.7 max-reasoning agent per execution path** (entry point + its reachable call chain)
+- **One high-reasoning agent per execution path** (entry point + reachable call chain)
 - **Mandatory reproduction**: every reported concern is reproduced in an isolated git worktree before reporting
-- **No fixes applied**: report-only, with proposed-fix diffs ready for another agent or a human
+- **No fixes applied**: report-only, with proposed-fix diffs
 
 If a concern can't be reproduced, it doesn't make the report.
 
-## Install
+Available for three coding agents:
 
-Paste this into Claude Code:
+| Platform | Directory | Parallelism | Worktree isolation |
+|---|---|---|---|
+| **Claude Code** | [`claude-code/`](claude-code/) | Native via `Agent` tool, fully parallel | Native via `isolation: "worktree"` |
+| **Codex CLI** | [`codex/`](codex/) | Native subagents (default cap 6 concurrent) | Native (git worktrees) |
+| **GitHub Copilot** | [`github-copilot/`](github-copilot/) | Sequential only | Manual via `git worktree add` |
 
-> Clone `https://github.com/Peaches99/goobreview` into `~/.claude/skills/goobreview` so the `/goobreview` skill becomes available.
+The Claude Code and Codex versions are faithful ports of the architecture
+(parallel analyzers + parallel verifiers in isolated worktrees). The Copilot
+version runs the workflow sequentially because Copilot lacks native
+sub-agent spawning — it's slower but the verification-first guarantee is
+preserved.
 
-Or run in your shell:
+---
+
+## Install — Claude Code
+
+**Paste into Claude Code:**
+
+> Clone `https://github.com/Peaches99/goobreview` to a temp directory, then copy the `claude-code/` subfolder contents into `~/.claude/skills/goobreview/`, then delete the temp clone.
+
+**Or one-liner:**
 
 ```bash
-git clone https://github.com/Peaches99/goobreview.git ~/.claude/skills/goobreview
+mkdir -p ~/.claude/skills/goobreview && \
+  git clone https://github.com/Peaches99/goobreview /tmp/goobreview-install && \
+  cp -r /tmp/goobreview-install/claude-code/. ~/.claude/skills/goobreview/ && \
+  rm -rf /tmp/goobreview-install
 ```
 
-The skill is auto-discovered by Claude Code on next session.
+Invoke with `/goobreview`, `/goobreview <PR#>`, `/goobreview <path>`, or
+`/goobreview --all`. Auto-discovered on next Claude Code session.
 
-## Usage
+---
+
+## Install — Codex CLI
+
+**Paste into Codex CLI:**
+
+> Clone `https://github.com/Peaches99/goobreview` to a temp directory, then copy the `codex/` subfolder contents into `~/.codex/skills/goobreview/`, then delete the temp clone.
+
+**Or one-liner:**
+
+```bash
+mkdir -p ~/.codex/skills/goobreview && \
+  git clone https://github.com/Peaches99/goobreview /tmp/goobreview-install && \
+  cp -r /tmp/goobreview-install/codex/. ~/.codex/skills/goobreview/ && \
+  rm -rf /tmp/goobreview-install
+```
+
+Codex auto-discovers `SKILL.md` files in `~/.codex/skills/**`. Invoke by
+asking Codex to "run goobreview" or similar natural-language prompts.
+
+If you want true parallelism on large reviews, raise Codex's concurrent
+thread cap in your config (default is 6).
+
+---
+
+## Install — GitHub Copilot
+
+**Paste into Copilot Chat (agent mode):**
+
+> Download `https://raw.githubusercontent.com/Peaches99/goobreview/main/github-copilot/goobreview.agent.md` and save it to `~/.copilot/agents/goobreview.agent.md` so the goobreview custom agent becomes available globally.
+
+**Or one-liner (global, all repos):**
+
+```bash
+mkdir -p ~/.copilot/agents && \
+  curl -fsSL https://raw.githubusercontent.com/Peaches99/goobreview/main/github-copilot/goobreview.agent.md \
+    -o ~/.copilot/agents/goobreview.agent.md
+```
+
+**Or one-liner (workspace, one repo):**
+
+```bash
+mkdir -p .github/agents && \
+  curl -fsSL https://raw.githubusercontent.com/Peaches99/goobreview/main/github-copilot/goobreview.agent.md \
+    -o .github/agents/goobreview.agent.md
+```
+
+Select "goobreview" from the agents dropdown in Copilot Chat. Tell it the
+scope (PR, path, or --all) and it runs the sequential workflow.
+
+---
+
+## Usage (all platforms)
 
 ```
-/goobreview              # diff vs default branch
-/goobreview 1234         # GitHub PR #1234 (needs gh CLI)
-/goobreview src/auth     # every entry point reachable from a path
-/goobreview --all        # whole codebase (confirms cost first)
+goobreview              # diff vs default branch
+goobreview 1234         # GitHub PR #1234 (needs gh CLI)
+goobreview src/auth     # every entry point reachable from a path
+goobreview --all        # whole codebase (confirms cost first)
 ```
 
-Output writes to `goobreview-report-<timestamp>.md` (+ `.json`) in the current directory. No source files are modified.
+Output writes to `goobreview-report-<timestamp>.md` (+ `.json`) in the
+current directory. No source files are modified.
+
+---
 
 ## How it works
 
 ```
-Scope → Path discovery → Phase 1: parallel analyzers (Opus 4.7, one per path) →
-Dedup candidates → Phase 2: parallel verifiers (Opus 4.7, worktree-isolated, one per concern) →
+Scope → Path discovery → Phase 1: parallel analyzers (one per path) →
+Dedup candidates → Phase 2: parallel verifiers (worktree-isolated, one per concern) →
 Aggregate VERIFIED only → Markdown + JSON report
 ```
 
-Every spawned agent runs `model: opus` with the `ultrathink` keyword for max reasoning depth. Verifiers use `isolation: "worktree"` so each gets a fresh git worktree to install deps and run tests in. The worktree auto-cleans when the verifier finishes.
+On Claude Code and Codex CLI, both phases are parallel. On Copilot, both
+phases are sequential — same architecture, just slower wall clock.
 
-## Caveats
+---
 
-- **Cost is real.** A medium PR spawns 20+ Opus 4.7 max-reasoning agents. The skill prints an estimate before launching but does not enforce a budget.
-- **Verification asymmetry.** Races, perf regressions, and memory leaks tend to come back INCONCLUSIVE rather than VERIFIED. goobreview is strongest on logic, null, type, injection, and auth bugs.
-- **Heuristic path discovery.** Dynamic dispatch (reflection, plugin loaders, eval) can hide entry points. Use `<path>` mode to override.
+## Caveats (apply to all platforms)
+
+- **Cost is real.** A medium PR spawns 20+ high-reasoning agents (on
+  Claude Code / Codex). Each platform's runtime prints an estimate before
+  launching; none enforce a budget.
+- **Verification asymmetry.** Races, perf regressions, and memory leaks
+  tend to come back INCONCLUSIVE rather than VERIFIED. goobreview is
+  strongest on logic, null, type, injection, and auth bugs.
+- **Heuristic path discovery.** Dynamic dispatch (reflection, plugin
+  loaders, eval) can hide entry points. Use `<path>` mode to override.
 - **Untested at scale.** Try on a small PR first to surface friction.
 
-## Files
+---
 
-- `SKILL.md` — orchestration logic + analyzer/verifier prompts
-- `lib/path-discovery.md` — entry-point heuristics per language
-- `lib/repro-strategies.md` — verification recipes for 25 bug classes
-- `lib/severity-rubric.md` — severity definitions
+## File layout
+
+```
+goobreview/
+├── README.md                      # this file
+├── claude-code/
+│   ├── SKILL.md                   # orchestration + Agent-tool spawning
+│   └── lib/
+│       ├── path-discovery.md      # entry-point heuristics per language
+│       ├── repro-strategies.md    # verification recipes for 25 bug classes
+│       └── severity-rubric.md
+├── codex/
+│   ├── SKILL.md                   # orchestration + native subagent spawning
+│   └── lib/                       # same files as claude-code/lib/
+└── github-copilot/
+    └── goobreview.agent.md        # single-file custom agent (sequential)
+```
+
+The `lib/` content is duplicated between `claude-code/` and `codex/` so each
+port is self-contained for installation. The Copilot agent inlines the
+condensed bug-class recipes and links back here for the full library.
+
+---
 
 ## License
 
