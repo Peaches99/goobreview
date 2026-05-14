@@ -104,8 +104,12 @@ goobreview src/auth     # every entry point reachable from a path
 goobreview --all        # whole codebase (confirms cost first)
 ```
 
-Output writes to `goobreview-report-<timestamp>.md` (+ `.json`) in the
-current directory. No source files are modified.
+Findings are rendered inline in the chat (the full verified findings list,
+with explanations, repro evidence, and proposed-fix diffs). A
+`goobreview-report-<timestamp>.md` (+ `.json`) is written transiently during
+the run and deleted before the orchestrator returns — the chat transcript is
+the permanent record, the working directory stays clean. No source files are
+modified.
 
 ---
 

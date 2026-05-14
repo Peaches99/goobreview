@@ -247,20 +247,36 @@ go in appendices for transparency.
 
 Sort by severity (critical > high > medium > low), then file, then line.
 
-Write two files in the user's repo root:
+Write two files in the user's repo root (transient — see Step 6):
 - `goobreview-report-<ISO-timestamp>.md`
 - `goobreview-report-<ISO-timestamp>.json`
 
 ### Step 5 — Final user message
 
-Tell the user:
-- Where the report lives
+Print to the user the **full verified findings inline** (every finding with
+explanation, repro command + output, and proposed-fix diff). Then the terse
+footer:
 - Headline counts: K verified findings, severity breakdown
 - Wall time
-- One-line on next steps (apply the proposed diffs from the report)
+- One-line on next steps (apply diffs above; re-run to re-verify)
+
+The inline rendering IS the deliverable — the report file is deleted in Step
+6, so the chat transcript becomes the permanent record.
 
 **DO NOT apply any fixes. DO NOT modify source files in the user's working tree.**
-The report is the only artifact you produce.
+
+### Step 6 — Cleanup
+
+Delete every artifact goobreview wrote so the working directory stays clean:
+
+```bash
+rm -f ./goobreview-report-*.md ./goobreview-report-*.json
+rm -f /tmp/goobreview-paths.json /tmp/goobreview-candidates.json \
+      /tmp/goobreview-diff.patch /tmp/goobreview-changed-files.txt
+```
+
+Do this AFTER Step 5 has printed findings inline. The chat transcript is the
+record; the files were transient bookkeeping.
 
 ---
 

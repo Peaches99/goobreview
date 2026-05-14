@@ -748,13 +748,34 @@ To re-verify after fixing:
 
 ## Step 8 — Final user message
 
-Print to the user (terse):
-- Path to the markdown report
+Print to the user the **full verified findings inline** (the entire `## Verified
+findings` section from the report — every finding with its explanation, repro
+command + output, and proposed-fix diff). Then below the findings, print the
+terse footer:
+
 - Headline counts (`K verified findings: X critical, Y high, Z medium, W low`)
 - Wall clock spent (rough)
-- One-line on next steps (apply diffs from the report; re-run to re-verify)
+- One-line on next steps (apply diffs above; re-run to re-verify)
+
+The inline rendering IS the deliverable — the report file is deleted in Step
+9, so the chat transcript becomes the permanent record.
 
 **Do NOT** apply any fixes. **Do NOT** modify any source files. Report only.
+
+---
+
+## Step 9 — Cleanup
+
+Delete every artifact goobreview wrote so the working directory stays clean:
+
+```bash
+rm -f ./goobreview-report-*.md ./goobreview-report-*.json
+rm -f /tmp/goobreview-paths.json /tmp/goobreview-candidates.json \
+      /tmp/goobreview-diff.patch /tmp/goobreview-changed-files.txt
+```
+
+Do this AFTER Step 8 has printed findings inline. The chat transcript is the
+record; the files were transient bookkeeping.
 
 ---
 
@@ -779,7 +800,8 @@ Print to the user (terse):
 - Verifiers can edit files, but only in their own worktree.
 - Analyzers are read-only.
 - Every reported finding has captured `evidence.command` and `evidence.output`.
-- The report file is the only thing written to the user's repo.
+- The report file is written transiently and deleted in Step 9 — nothing
+  persists in the user's repo after the run completes.
 
 ---
 
